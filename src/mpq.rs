@@ -134,6 +134,8 @@ mod tests {
         assert_eq!(patch_sort_key("patch-A.mpq"), 9);
         assert_eq!(patch_sort_key("patch-A.MPQ"), 9);
         assert_eq!(patch_sort_key("patch-Z.mpq"), 34);
+        assert_eq!(patch_sort_key("patch-a.mpq"), 9);
+        assert_eq!(patch_sort_key("patch-z.mpq"), 34);
     }
 
     #[test]
