@@ -937,7 +937,7 @@ pub fn get_record(dbc_name: &'static str, id: u32) -> Result<Option<Vec<FieldVal
         }
     }
 
-    match map.get(dbc_name).unwrap() {
+    match map.get(dbc_name).expect("invariant: key always inserted in block above") {
         None => Err(format!("'DBFilesClient\\{}.dbc' not found in any MPQ", dbc_name)),
         Some(rows) => Ok(rows.get(&id).cloned()),
     }
