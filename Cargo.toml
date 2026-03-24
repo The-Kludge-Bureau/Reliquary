@@ -1,0 +1,12 @@
+[package]
+name    = "reliquary"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+name       = "Reliquary"
+
+[dependencies]
+minhook  = "0.9"
+stormlib = { git = "https://github.com/notOrrytrout/stormlib-rs" }
