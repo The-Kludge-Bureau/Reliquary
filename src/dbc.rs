@@ -108,7 +108,11 @@ pub fn parse_wdbc(data: &[u8], schema: &[(&str, FieldType)]) -> Result<DbcRows, 
             FieldValue::UInt32(n) => *n,
             _ => i as u32,
         };
-        rows.insert(id, fields);
+        // Use row index on collision so DBCs with non-unique first fields
+        // (e.g. ItemSubClass, keyed by classId) preserve all rows for
+        // the composite re-keying pass in get_record.
+        let key = if rows.contains_key(&id) { i as u32 } else { id };
+        rows.insert(key, fields);
     }
 
     Ok(rows)
