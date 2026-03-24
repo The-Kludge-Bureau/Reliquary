@@ -940,7 +940,28 @@ pub fn get_record(dbc_name: &'static str, id: u32) -> Result<Option<Vec<FieldVal
             }
             Some(data) => {
                 match parse_wdbc(&data, schema) {
-                    Ok(rows) => { map.insert(dbc_name, Some(rows)); }
+                    Ok(rows) => {
+                        let rows = if dbc_name == "ItemSubClass" {
+                            let mut rekeyed = HashMap::with_capacity(rows.len());
+                            for (_, fields) in rows {
+                                let class_id = match &fields[0] {
+                                    FieldValue::Int32(n)  => *n as u32,
+                                    FieldValue::UInt32(n) => *n,
+                                    _ => continue,
+                                };
+                                let sub_id = match &fields[1] {
+                                    FieldValue::Int32(n)  => *n as u32,
+                                    FieldValue::UInt32(n) => *n,
+                                    _ => continue,
+                                };
+                                rekeyed.insert(class_id * 1000 + sub_id, fields);
+                            }
+                            rekeyed
+                        } else {
+                            rows
+                        };
+                        map.insert(dbc_name, Some(rows));
+                    }
                     Err(e) => {
                         log_error(&format!("failed to parse '{}': {}", internal, e));
                         map.insert(dbc_name, None);

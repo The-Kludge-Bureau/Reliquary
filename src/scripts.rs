@@ -143,3 +143,124 @@ pub unsafe extern "fastcall" fn script_rq_get_row(_l: LuaState) -> u32 {
         }
     }
 }
+
+macro_rules! typed_lookup {
+    ($fn_name:ident, $dbc_name:literal) => {
+        pub unsafe extern "fastcall" fn $fn_name(_l: LuaState) -> u32 {
+            let l = lua::get_lua_state();
+            if lua::lua_gettop(l) != 1 || !lua::lua_isnumber(l, 1) {
+                lua::lua_error(l, concat!("Usage: ", stringify!($fn_name), "(id)"));
+                return 0;
+            }
+            let id = lua::lua_tonumber(l, 1) as u32;
+            let schema = match dbc::get_schema($dbc_name) {
+                Some(s) => s,
+                None => {
+                    lua::lua_pushnil(l);
+                    lua::lua_pushstring(l, concat!("internal error: schema missing for ", $dbc_name));
+                    return 2;
+                }
+            };
+            match dbc::get_record($dbc_name, id) {
+                Err(e) => {
+                    lua::lua_pushnil(l);
+                    lua::lua_pushstring(l, &format!("{}: {}", stringify!($fn_name), e));
+                    2
+                }
+                Ok(None) => {
+                    lua::lua_pushnil(l);
+                    lua::lua_pushstring(l, &format!(
+                        "{}: no record with id {}", stringify!($fn_name), id
+                    ));
+                    2
+                }
+                Ok(Some(fields)) => {
+                    push_row_table(l, schema, &fields, None);
+                    1
+                }
+            }
+        }
+    };
+}
+
+typed_lookup!(script_rq_get_area_table,           "AreaTable");
+typed_lookup!(script_rq_get_area_trigger,          "AreaTrigger");
+typed_lookup!(script_rq_get_char_start_outfit,     "CharStartOutfit");
+typed_lookup!(script_rq_get_chr_classes,           "ChrClasses");
+typed_lookup!(script_rq_get_chr_races,             "ChrRaces");
+typed_lookup!(script_rq_get_creature_family,       "CreatureFamily");
+typed_lookup!(script_rq_get_creature_type,         "CreatureType");
+typed_lookup!(script_rq_get_faction,               "Faction");
+typed_lookup!(script_rq_get_faction_template,      "FactionTemplate");
+typed_lookup!(script_rq_get_item_bag_family,       "ItemBagFamily");
+typed_lookup!(script_rq_get_item_class,            "ItemClass");
+typed_lookup!(script_rq_get_item_display_info,     "ItemDisplayInfo");
+typed_lookup!(script_rq_get_item_random_properties,"ItemRandomProperties");
+typed_lookup!(script_rq_get_item_set,              "ItemSet");
+typed_lookup!(script_rq_get_lfg_dungeons,          "LFGDungeons");
+typed_lookup!(script_rq_get_lock,                  "Lock");
+typed_lookup!(script_rq_get_lock_type,             "LockType");
+typed_lookup!(script_rq_get_mail_template,         "MailTemplate");
+typed_lookup!(script_rq_get_map,                   "Map");
+typed_lookup!(script_rq_get_quest_info,            "QuestInfo");
+typed_lookup!(script_rq_get_quest_sort,            "QuestSort");
+typed_lookup!(script_rq_get_skill_line,            "SkillLine");
+typed_lookup!(script_rq_get_skill_line_ability,    "SkillLineAbility");
+typed_lookup!(script_rq_get_skill_line_category,   "SkillLineCategory");
+typed_lookup!(script_rq_get_spell,                 "Spell");
+typed_lookup!(script_rq_get_spell_cast_times,      "SpellCastTimes");
+typed_lookup!(script_rq_get_spell_category,        "SpellCategory");
+typed_lookup!(script_rq_get_spell_dispel_type,     "SpellDispelType");
+typed_lookup!(script_rq_get_spell_duration,        "SpellDuration");
+typed_lookup!(script_rq_get_spell_icon,            "SpellIcon");
+typed_lookup!(script_rq_get_spell_item_enchantment,"SpellItemEnchantment");
+typed_lookup!(script_rq_get_spell_mechanic,        "SpellMechanic");
+typed_lookup!(script_rq_get_spell_radius,          "SpellRadius");
+typed_lookup!(script_rq_get_spell_range,           "SpellRange");
+typed_lookup!(script_rq_get_spell_shapeshift_form, "SpellShapeshiftForm");
+typed_lookup!(script_rq_get_talent,                "Talent");
+typed_lookup!(script_rq_get_talent_tab,            "TalentTab");
+typed_lookup!(script_rq_get_taxi_nodes,            "TaxiNodes");
+typed_lookup!(script_rq_get_taxi_path,             "TaxiPath");
+typed_lookup!(script_rq_get_taxi_path_node,        "TaxiPathNode");
+typed_lookup!(script_rq_get_world_map_area,        "WorldMapArea");
+typed_lookup!(script_rq_get_world_safe_locs,       "WorldSafeLocs");
+
+pub unsafe extern "fastcall" fn script_rq_get_item_sub_class(_l: LuaState) -> u32 {
+    let l = lua::get_lua_state();
+    if lua::lua_gettop(l) != 2 || !lua::lua_isnumber(l, 1) || !lua::lua_isnumber(l, 2) {
+        lua::lua_error(l, "Usage: RQ_GetItemSubClass(classId, subclassId)");
+        return 0;
+    }
+    let class_id    = lua::lua_tonumber(l, 1) as u32;
+    let subclass_id = lua::lua_tonumber(l, 2) as u32;
+    let key = class_id * 1000 + subclass_id;
+
+    let schema = match dbc::get_schema("ItemSubClass") {
+        Some(s) => s,
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, "internal error: schema missing for ItemSubClass");
+            return 2;
+        }
+    };
+    match dbc::get_record_composite("ItemSubClass", key) {
+        Err(e) => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_GetItemSubClass: {}", e));
+            2
+        }
+        Ok(None) => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!(
+                "RQ_GetItemSubClass: no record for classId={} subclassId={}",
+                class_id, subclass_id
+            ));
+            2
+        }
+        Ok(Some(fields)) => {
+            push_row_table(l, schema, &fields, None);
+            1
+        }
+    }
+}
