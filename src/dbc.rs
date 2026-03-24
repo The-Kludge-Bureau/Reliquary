@@ -873,3 +873,78 @@ pub static WORLD_SAFE_LOCS_SCHEMA: Schema = &[
     ("name_zhCN", S), ("name_ruRU", S), ("name_esES", S), ("name_ptPT", S),
     ("nameMask", I),
 ];
+
+#[cfg(not(test))]
+use crate::mpq;
+#[cfg(not(test))]
+use std::sync::Mutex;
+
+#[cfg(not(test))]
+static MPQ_LIST: OnceLock<Vec<std::path::PathBuf>> = OnceLock::new();
+
+#[cfg(not(test))]
+pub fn init_mpq_list() {
+    MPQ_LIST.get_or_init(|| mpq::build_mpq_list(std::path::Path::new("Data")));
+}
+
+#[cfg(not(test))]
+fn log_error(msg: &str) {
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true).append(true).open("Logs/Reliquary.log")
+    {
+        let _ = writeln!(f, "[Reliquary] {}", msg);
+    }
+}
+
+#[cfg(not(test))]
+static DBC_STORE: OnceLock<Mutex<HashMap<&'static str, Option<DbcRows>>>> = OnceLock::new();
+
+#[cfg(not(test))]
+fn get_store() -> &'static Mutex<HashMap<&'static str, Option<DbcRows>>> {
+    DBC_STORE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Looks up a single record by ID in the named DBC.
+/// Returns Ok(Some(fields)) on hit, Ok(None) on miss, Err(msg) on load failure.
+#[cfg(not(test))]
+pub fn get_record(dbc_name: &'static str, id: u32) -> Result<Option<Vec<FieldValue>>, String> {
+    let schema = get_schema(dbc_name)
+        .ok_or_else(|| format!("unknown DBC '{}'", dbc_name))?;
+
+    let store = get_store();
+    let mut map = store.lock().unwrap();
+
+    if !map.contains_key(dbc_name) {
+        let mpq_list = MPQ_LIST.get()
+            .ok_or_else(|| "MPQ list not initialized".to_string())?;
+
+        let internal = format!("DBFilesClient\\{}.dbc", dbc_name);
+        match mpq::extract_file(mpq_list, &internal) {
+            None => {
+                log_error(&format!("'{}' not found in any MPQ", internal));
+                map.insert(dbc_name, None);
+            }
+            Some(data) => {
+                match parse_wdbc(&data, schema) {
+                    Ok(rows) => { map.insert(dbc_name, Some(rows)); }
+                    Err(e) => {
+                        log_error(&format!("failed to parse '{}': {}", internal, e));
+                        map.insert(dbc_name, None);
+                    }
+                }
+            }
+        }
+    }
+
+    match map.get(dbc_name).unwrap() {
+        None => Err(format!("'DBFilesClient\\{}.dbc' not found in any MPQ", dbc_name)),
+        Some(rows) => Ok(rows.get(&id).cloned()),
+    }
+}
+
+/// Variant for composite-key DBCs like ItemSubClass.
+#[cfg(not(test))]
+pub fn get_record_composite(dbc_name: &'static str, key: u32) -> Result<Option<Vec<FieldValue>>, String> {
+    get_record(dbc_name, key)
+}
