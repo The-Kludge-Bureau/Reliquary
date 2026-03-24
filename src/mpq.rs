@@ -28,6 +28,7 @@ pub fn patch_sort_key(name: &str) -> u32 {
     // Must match "PATCH-X" where X is a single digit 2-9 or letter A-Z.
     if upper.starts_with("PATCH-") && upper.len() == 7 {
         let ch = upper.as_bytes()[6] as char;
+        // WoW 1.12.1 ships patch.mpq and patch-2.mpq onward; patch-1 does not exist
         if ch >= '2' && ch <= '9' {
             return (ch as u32) - ('2' as u32) + 1;
         }
