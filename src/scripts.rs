@@ -1,6 +1,13 @@
 use crate::dbc::{self, FieldValue};
 use crate::lua::{self, LuaState};
 
+// SAFETY: lua_error (called indirectly via lua::lua_error) triggers a longjmp
+// back to the Lua protected-call boundary. This unwinds Rust stack frames
+// without running destructors. All calls to lua::lua_error in this file must
+// occur before any heap-allocated locals (String, Vec, MutexGuard, etc.) are
+// created in the same scope. Violating this causes silent memory leaks or
+// use-after-free in release builds.
+
 const VERSION_MAJOR: u32 = 0;
 const VERSION_MINOR: u32 = 1;
 const VERSION_PATCH: u32 = 0;
@@ -234,6 +241,11 @@ pub unsafe extern "fastcall" fn script_rq_get_item_sub_class(_l: LuaState) -> u3
     }
     let class_id    = lua::lua_tonumber(l, 1) as u32;
     let subclass_id = lua::lua_tonumber(l, 2) as u32;
+    if class_id > 4294 || subclass_id > 4294967 {
+        lua::lua_pushnil(l);
+        lua::lua_pushstring(l, "RQ_GetItemSubClass: classId or subclassId out of range");
+        return 2;
+    }
     let key = class_id * 1000 + subclass_id;
 
     let schema = match dbc::get_schema("ItemSubClass") {

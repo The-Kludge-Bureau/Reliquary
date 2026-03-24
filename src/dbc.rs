@@ -926,6 +926,10 @@ pub fn get_record(dbc_name: &'static str, id: u32) -> Result<Option<Vec<FieldVal
         .ok_or_else(|| format!("unknown DBC '{}'", dbc_name))?;
 
     let store = get_store();
+    // The lock is held for the full duration of the MPQ read and parse.
+    // This is safe because the WoW client is single-threaded and Lua is
+    // not re-entrant across DBC loads. Do not call lua_error while this
+    // lock is held.
     let mut map = store.lock().unwrap();
 
     if !map.contains_key(dbc_name) {
