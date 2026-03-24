@@ -89,13 +89,8 @@ pub unsafe extern "fastcall" fn script_rq_get_row(_l: LuaState) -> u32 {
         return 0;
     }
 
-    let dbc_name = match lua::lua_tostring(l, 1) {
-        Some(s) => s,
-        None => {
-            lua::lua_error(l, "RQ_GetRow: dbc_name is nil");
-            return 0;
-        }
-    };
+    let dbc_name = lua::lua_tostring(l, 1)
+        .expect("lua_isstring guard ensures this is a string");
 
     let id = lua::lua_tonumber(l, 2) as u32;
 
