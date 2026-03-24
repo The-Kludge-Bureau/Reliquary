@@ -9,4 +9,4 @@ name       = "Reliquary"
 
 [dependencies]
 minhook  = "0.9"
-stormlib = { git = "https://github.com/notOrrytrout/stormlib-rs" }
+stormlib-rs = { git = "https://github.com/notOrrytrout/stormlib-rs" }
