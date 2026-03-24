@@ -4,12 +4,12 @@ use std::path::{Path, PathBuf};
 ///
 /// Priority order (lowest to highest):
 ///   patch.mpq      -> 0
-///   patch-2.mpq    -> 1
+///   patch-0.mpq    -> 1
 ///   ...
-///   patch-9.mpq    -> 8
-///   patch-A.mpq    -> 9
+///   patch-9.mpq    -> 10
+///   patch-A.mpq    -> 11
 ///   ...
-///   patch-Z.mpq    -> 34
+///   patch-Z.mpq    -> 36
 ///   anything else  -> u32::MAX
 pub fn patch_sort_key(name: &str) -> u32 {
     // Strip the extension case-insensitively.
@@ -25,15 +25,14 @@ pub fn patch_sort_key(name: &str) -> u32 {
         return 0;
     }
 
-    // Must match "PATCH-X" where X is a single digit 2-9 or letter A-Z.
+    // Must match "PATCH-X" where X is a single digit 0-9 or letter A-Z.
     if upper.starts_with("PATCH-") && upper.len() == 7 {
         let ch = upper.as_bytes()[6] as char;
-        // WoW 1.12.1 ships patch.mpq and patch-2.mpq onward; patch-1 does not exist
-        if ch >= '2' && ch <= '9' {
-            return (ch as u32) - ('2' as u32) + 1;
+        if ch >= '0' && ch <= '9' {
+            return (ch as u32) - ('0' as u32) + 1; // '0'->1 .. '9'->10
         }
         if ch >= 'A' && ch <= 'Z' {
-            return (ch as u32) - ('A' as u32) + 9;
+            return (ch as u32) - ('A' as u32) + 11; // 'A'->11 .. 'Z'->36
         }
     }
 
@@ -42,7 +41,7 @@ pub fn patch_sort_key(name: &str) -> u32 {
 
 /// Returns MPQ paths ordered from lowest to highest priority.
 ///
-/// Fixed base archives come first (in the order listed below), followed by
+/// Fixed base archives come first (in the WoW client load order), followed by
 /// patch archives discovered by scanning `wow_dir`, sorted by `patch_sort_key`.
 ///
 /// Each base archive is resolved by trying `NAME.MPQ` then `NAME.mpq`; it is
@@ -50,8 +49,8 @@ pub fn patch_sort_key(name: &str) -> u32 {
 #[cfg(not(test))]
 pub fn build_mpq_list(wow_dir: &Path) -> Vec<PathBuf> {
     const BASE_NAMES: &[&str] = &[
-        "base", "dbc", "fonts", "interface", "misc", "model", "sound", "speech", "terrain",
-        "texture", "wmo",
+        "model", "texture", "terrain", "wmo", "sound", "misc", "interface", "fonts", "speech",
+        "dbc", "speech2",
     ];
 
     let mut list: Vec<PathBuf> = Vec::new();
@@ -126,17 +125,19 @@ mod tests {
 
     #[test]
     fn test_patch_sort_key_numbers() {
-        assert_eq!(patch_sort_key("patch-2.mpq"), 1);
-        assert_eq!(patch_sort_key("patch-9.mpq"), 8);
+        assert_eq!(patch_sort_key("patch-0.mpq"), 1);
+        assert_eq!(patch_sort_key("patch-1.mpq"), 2);
+        assert_eq!(patch_sort_key("patch-2.mpq"), 3);
+        assert_eq!(patch_sort_key("patch-9.mpq"), 10);
     }
 
     #[test]
     fn test_patch_sort_key_letters() {
-        assert_eq!(patch_sort_key("patch-A.mpq"), 9);
-        assert_eq!(patch_sort_key("patch-A.MPQ"), 9);
-        assert_eq!(patch_sort_key("patch-Z.mpq"), 34);
-        assert_eq!(patch_sort_key("patch-a.mpq"), 9);
-        assert_eq!(patch_sort_key("patch-z.mpq"), 34);
+        assert_eq!(patch_sort_key("patch-A.mpq"), 11);
+        assert_eq!(patch_sort_key("patch-A.MPQ"), 11);
+        assert_eq!(patch_sort_key("patch-Z.mpq"), 36);
+        assert_eq!(patch_sort_key("patch-a.mpq"), 11);
+        assert_eq!(patch_sort_key("patch-z.mpq"), 36);
     }
 
     #[test]
@@ -151,7 +152,8 @@ mod tests {
             "patch-A.mpq",
             "patch-3.mpq",
             "patch.mpq",
-            "patch-2.mpq",
+            "patch-0.mpq",
+            "patch-1.mpq",
             "patch-9.mpq",
             "patch-B.mpq",
         ];
@@ -160,7 +162,8 @@ mod tests {
             names,
             vec![
                 "patch.mpq",
-                "patch-2.mpq",
+                "patch-0.mpq",
+                "patch-1.mpq",
                 "patch-3.mpq",
                 "patch-9.mpq",
                 "patch-A.mpq",
