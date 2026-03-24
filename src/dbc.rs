@@ -949,12 +949,12 @@ pub fn get_record(dbc_name: &'static str, id: u32) -> Result<Option<Vec<FieldVal
                             let mut rekeyed = HashMap::with_capacity(rows.len());
                             for (_, fields) in rows {
                                 let class_id = match &fields[0] {
-                                    FieldValue::Int32(n)  => *n as u32,
+                                    FieldValue::Int32(n) if *n >= 0 => *n as u32,
                                     FieldValue::UInt32(n) => *n,
                                     _ => continue,
                                 };
                                 let sub_id = match &fields[1] {
-                                    FieldValue::Int32(n)  => *n as u32,
+                                    FieldValue::Int32(n) if *n >= 0 => *n as u32,
                                     FieldValue::UInt32(n) => *n,
                                     _ => continue,
                                 };
