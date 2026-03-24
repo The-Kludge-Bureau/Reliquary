@@ -2,6 +2,7 @@
 
 mod dbc;
 mod mpq;
+#[cfg(windows)]
 mod scripts;
 
 #[cfg(windows)]

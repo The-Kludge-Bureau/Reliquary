@@ -874,6 +874,19 @@ pub static WORLD_SAFE_LOCS_SCHEMA: Schema = &[
     ("nameMask", I),
 ];
 
+pub static KNOWN_DBC_NAMES: &[&str] = &[
+    "AreaTable", "AreaTrigger", "CharStartOutfit", "ChrClasses", "ChrRaces",
+    "CreatureFamily", "CreatureType", "Faction", "FactionTemplate",
+    "ItemBagFamily", "ItemClass", "ItemDisplayInfo", "ItemRandomProperties",
+    "ItemSet", "ItemSubClass", "LFGDungeons", "Lock", "LockType",
+    "MailTemplate", "Map", "QuestInfo", "QuestSort", "SkillLine",
+    "SkillLineAbility", "SkillLineCategory", "Spell", "SpellCastTimes",
+    "SpellCategory", "SpellDispelType", "SpellDuration", "SpellIcon",
+    "SpellItemEnchantment", "SpellMechanic", "SpellRadius", "SpellRange",
+    "SpellShapeshiftForm", "Talent", "TalentTab", "TaxiNodes", "TaxiPath",
+    "TaxiPathNode", "WorldMapArea", "WorldSafeLocs",
+];
+
 #[cfg(not(test))]
 use crate::mpq;
 #[cfg(not(test))]
