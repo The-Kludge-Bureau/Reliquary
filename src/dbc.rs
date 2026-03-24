@@ -47,6 +47,17 @@ pub fn parse_wdbc(data: &[u8], schema: &[(&str, FieldType)]) -> Result<DbcRows, 
         ));
     }
 
+    if record_size != field_count * 4 {
+        return Err(format!(
+            "record_size {} does not match field_count {} (expected {})",
+            record_size, field_count, field_count * 4
+        ));
+    }
+
+    if field_count == 0 {
+        return Err("DBC has zero fields".into());
+    }
+
     if schema.len() != field_count {
         return Err(format!(
             "schema has {} fields but DBC has {}",
@@ -72,6 +83,12 @@ pub fn parse_wdbc(data: &[u8], schema: &[(&str, FieldType)]) -> Result<DbcRows, 
                 FieldType::Float32 => FieldValue::Float32(f32::from_bits(raw)),
                 FieldType::String  => {
                     let offset = raw as usize;
+                    if offset >= string_block.len() {
+                        return Err(format!(
+                            "string offset {} is out of bounds (string block size {})",
+                            offset, string_block.len()
+                        ));
+                    }
                     let end = string_block[offset..]
                         .iter()
                         .position(|&b| b == 0)
@@ -153,6 +170,50 @@ mod tests {
     fn test_parse_wdbc_truncated() {
         let data = b"WDBC\x01\x00\x00\x00\x01\x00\x00\x00".to_vec(); // incomplete header
         let schema: &[(&str, FieldType)] = &[("id", FieldType::Int32)];
+        assert!(parse_wdbc(&data, schema).is_err());
+    }
+
+    #[test]
+    fn test_parse_wdbc_bad_string_offset() {
+        // One record, one string field. The string offset points past the end of the string block.
+        let mut data = b"WDBC".to_vec();
+        data.extend_from_slice(&1u32.to_le_bytes()); // record_count=1
+        data.extend_from_slice(&1u32.to_le_bytes()); // field_count=1
+        data.extend_from_slice(&4u32.to_le_bytes()); // record_size=4
+        data.extend_from_slice(&4u32.to_le_bytes()); // string_block_size=4
+        // Record: string offset = 999 (past end of 4-byte string block)
+        data.extend_from_slice(&999u32.to_le_bytes());
+        // String block: 4 bytes
+        data.extend_from_slice(b"\x00hi\x00");
+        let schema: &[(&str, FieldType)] = &[("name", FieldType::String)];
+        assert!(parse_wdbc(&data, schema).is_err());
+    }
+
+    #[test]
+    fn test_parse_wdbc_bad_record_size() {
+        // Header claims record_size=8 but field_count=1 (expected 4).
+        let mut data = b"WDBC".to_vec();
+        data.extend_from_slice(&1u32.to_le_bytes()); // record_count=1
+        data.extend_from_slice(&1u32.to_le_bytes()); // field_count=1
+        data.extend_from_slice(&8u32.to_le_bytes()); // record_size=8 (mismatch: should be 4)
+        data.extend_from_slice(&1u32.to_le_bytes()); // string_block_size=1
+        // Pad to satisfy the total length check (20 + 1*8 + 1 = 29 bytes)
+        data.extend_from_slice(&[0u8; 9]);
+        let schema: &[(&str, FieldType)] = &[("id", FieldType::UInt32)];
+        assert!(parse_wdbc(&data, schema).is_err());
+    }
+
+    #[test]
+    fn test_parse_wdbc_zero_fields() {
+        // field_count=0 but record_count=1. record_size must equal field_count*4=0.
+        let mut data = b"WDBC".to_vec();
+        data.extend_from_slice(&1u32.to_le_bytes()); // record_count=1
+        data.extend_from_slice(&0u32.to_le_bytes()); // field_count=0
+        data.extend_from_slice(&0u32.to_le_bytes()); // record_size=0
+        data.extend_from_slice(&1u32.to_le_bytes()); // string_block_size=1
+        // String block: 1 byte
+        data.extend_from_slice(b"\x00");
+        let schema: &[(&str, FieldType)] = &[];
         assert!(parse_wdbc(&data, schema).is_err());
     }
 }
