@@ -1,35 +1,48 @@
 #![allow(non_snake_case)]
 
 mod dbc;
-mod lua;
 mod mpq;
-mod offsets;
 mod scripts;
 
+#[cfg(windows)]
+mod lua;
+#[cfg(windows)]
+mod offsets;
+
+#[cfg(windows)]
 use minhook::MinHook;
+#[cfg(windows)]
 use std::sync::OnceLock;
 
+#[cfg(windows)]
 const DLL_PROCESS_ATTACH: u32 = 1;
 
+#[cfg(windows)]
 type LoadScriptFunctionsT = unsafe extern "stdcall" fn();
 
+#[cfg(windows)]
 static ORIG_PLAYER_LOAD: OnceLock<LoadScriptFunctionsT> = OnceLock::new();
+#[cfg(windows)]
 static ORIG_GLUE_LOAD:   OnceLock<LoadScriptFunctionsT> = OnceLock::new();
 
+#[cfg(windows)]
 unsafe fn register_rq_functions() {
     // populated in Task 9
 }
 
+#[cfg(windows)]
 unsafe extern "stdcall" fn player_load_hook() {
     if let Some(orig) = ORIG_PLAYER_LOAD.get() { orig(); }
     register_rq_functions();
 }
 
+#[cfg(windows)]
 unsafe extern "stdcall" fn glue_load_hook() {
     if let Some(orig) = ORIG_GLUE_LOAD.get() { orig(); }
     register_rq_functions();
 }
 
+#[cfg(windows)]
 #[no_mangle]
 pub unsafe extern "system" fn DllMain(
     _hinstance: *mut std::ffi::c_void,
@@ -53,6 +66,7 @@ pub unsafe extern "system" fn DllMain(
     1
 }
 
+#[cfg(windows)]
 #[no_mangle]
 pub extern "C" fn Load() -> u32 {
     unsafe { let _ = MinHook::enable_all_hooks(); }

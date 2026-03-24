@@ -8,5 +8,7 @@ crate-type = ["cdylib"]
 name       = "Reliquary"
 
 [dependencies]
-minhook  = "0.9"
 stormlib-rs = { git = "https://github.com/notOrrytrout/stormlib-rs" }
+
+[target.'cfg(windows)'.dependencies]
+minhook = "0.9"
