@@ -1005,3 +1005,17 @@ pub fn get_all_records(dbc_name: &'static str) -> Result<Vec<Vec<FieldValue>>, S
         None => Err(format!("unknown DBC '{}'", dbc_name)),
     }
 }
+
+/// Returns the number of records in the named DBC.
+#[cfg(not(test))]
+pub fn get_record_count(dbc_name: &'static str) -> Result<usize, String> {
+    let _ = get_record(dbc_name, 0);
+
+    let store = get_store();
+    let map = store.lock().unwrap();
+    match map.get(dbc_name) {
+        Some(Some(rows)) => Ok(rows.len()),
+        Some(None) => Err(format!("'DBFilesClient\\{}.dbc' not found in any MPQ", dbc_name)),
+        None => Err(format!("unknown DBC '{}'", dbc_name)),
+    }
+}

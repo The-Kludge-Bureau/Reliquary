@@ -43,6 +43,7 @@ unsafe fn register_rq_functions() {
     lua::register_lua_function("RQ_GetVersion",            script_rq_get_version            as *mut usize);
     lua::register_lua_function("RQ_GetRow",                script_rq_get_row                as *mut usize);
     lua::register_lua_function("RQ_GetRows",               script_rq_get_rows               as *mut usize);
+    lua::register_lua_function("RQ_GetRowCount",             script_rq_get_row_count          as *mut usize);
     lua::register_lua_function("RQ_GetAreaTable",          script_rq_get_area_table         as *mut usize);
     lua::register_lua_function("RQ_GetAreaTrigger",        script_rq_get_area_trigger       as *mut usize);
     lua::register_lua_function("RQ_GetCharStartOutfit",    script_rq_get_char_start_outfit  as *mut usize);

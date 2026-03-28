@@ -209,6 +209,44 @@ pub unsafe extern "fastcall" fn script_rq_get_rows(_l: LuaState) -> u32 {
     }
 }
 
+pub unsafe extern "fastcall" fn script_rq_get_row_count(_l: LuaState) -> u32 {
+    let l = lua::get_lua_state();
+
+    if lua::lua_gettop(l) != 1 || !lua::lua_isstring(l, 1) {
+        lua::lua_error(l, "Usage: RQ_GetRowCount(dbc_name)");
+        return 0;
+    }
+
+    let dbc_name = lua::lua_tostring(l, 1)
+        .expect("lua_isstring guard ensures this is a string");
+
+    let static_name: Option<&'static str> = dbc::KNOWN_DBC_NAMES
+        .iter()
+        .find(|&&n| n == dbc_name.as_str())
+        .copied();
+
+    let name = match static_name {
+        Some(n) => n,
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_GetRowCount: unknown DBC '{}'", dbc_name));
+            return 2;
+        }
+    };
+
+    match dbc::get_record_count(name) {
+        Err(e) => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_GetRowCount: {}", e));
+            2
+        }
+        Ok(count) => {
+            lua::lua_pushnumber(l, count as f64);
+            1
+        }
+    }
+}
+
 macro_rules! typed_lookup {
     ($fn_name:ident, $dbc_name:literal) => {
         pub unsafe extern "fastcall" fn $fn_name(_l: LuaState) -> u32 {
