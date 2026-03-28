@@ -1019,3 +1019,23 @@ pub fn get_record_count(dbc_name: &'static str) -> Result<usize, String> {
         None => Err(format!("unknown DBC '{}'", dbc_name)),
     }
 }
+
+/// Returns the record at 1-based index in the named DBC.
+#[cfg(not(test))]
+pub fn get_record_by_index(dbc_name: &'static str, index: usize) -> Result<Option<Vec<FieldValue>>, String> {
+    let _ = get_record(dbc_name, 0);
+
+    let store = get_store();
+    let map = store.lock().unwrap();
+    match map.get(dbc_name) {
+        Some(Some(rows)) => {
+            if index == 0 || index > rows.len() {
+                Ok(None)
+            } else {
+                Ok(rows.values().nth(index - 1).cloned())
+            }
+        }
+        Some(None) => Err(format!("'DBFilesClient\\{}.dbc' not found in any MPQ", dbc_name)),
+        None => Err(format!("unknown DBC '{}'", dbc_name)),
+    }
+}
