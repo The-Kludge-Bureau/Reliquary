@@ -990,3 +990,18 @@ pub fn get_record(dbc_name: &'static str, id: u32) -> Result<Option<Vec<FieldVal
 pub fn get_record_composite(dbc_name: &'static str, key: u32) -> Result<Option<Vec<FieldValue>>, String> {
     get_record(dbc_name, key)
 }
+
+/// Returns all records from the named DBC as a Vec of field vectors.
+#[cfg(not(test))]
+pub fn get_all_records(dbc_name: &'static str) -> Result<Vec<Vec<FieldValue>>, String> {
+    // Force the DBC to be loaded/cached by looking up a dummy ID.
+    let _ = get_record(dbc_name, 0);
+
+    let store = get_store();
+    let map = store.lock().unwrap();
+    match map.get(dbc_name) {
+        Some(Some(rows)) => Ok(rows.values().cloned().collect()),
+        Some(None) => Err(format!("'DBFilesClient\\{}.dbc' not found in any MPQ", dbc_name)),
+        None => Err(format!("unknown DBC '{}'", dbc_name)),
+    }
+}

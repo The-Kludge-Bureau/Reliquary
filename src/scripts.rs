@@ -151,6 +151,64 @@ pub unsafe extern "fastcall" fn script_rq_get_row(_l: LuaState) -> u32 {
     }
 }
 
+pub unsafe extern "fastcall" fn script_rq_get_rows(_l: LuaState) -> u32 {
+    let l = lua::get_lua_state();
+    let argc = lua::lua_gettop(l);
+
+    if argc < 1 || !lua::lua_isstring(l, 1) {
+        lua::lua_error(l, "Usage: RQ_GetRows(dbc_name [, locale])");
+        return 0;
+    }
+
+    let dbc_name = lua::lua_tostring(l, 1)
+        .expect("lua_isstring guard ensures this is a string");
+
+    let locale: Option<String> = if argc >= 2 && lua::lua_isstring(l, 2) {
+        lua::lua_tostring(l, 2)
+    } else {
+        None
+    };
+
+    let static_name: Option<&'static str> = dbc::KNOWN_DBC_NAMES
+        .iter()
+        .find(|&&n| n == dbc_name.as_str())
+        .copied();
+
+    let name = match static_name {
+        Some(n) => n,
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_GetRows: unknown DBC '{}'", dbc_name));
+            return 2;
+        }
+    };
+
+    let schema = match dbc::get_schema(name) {
+        Some(s) => s,
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_GetRows: unknown DBC '{}'", name));
+            return 2;
+        }
+    };
+
+    match dbc::get_all_records(name) {
+        Err(e) => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_GetRows: {}", e));
+            2
+        }
+        Ok(all_rows) => {
+            lua::lua_newtable(l);
+            for (i, fields) in all_rows.iter().enumerate() {
+                push_row_table(l, schema, fields, locale.as_deref());
+                lua::lua_rawseti(l, -2, (i + 1) as i32);
+            }
+            1
+        }
+    }
+}
+
 macro_rules! typed_lookup {
     ($fn_name:ident, $dbc_name:literal) => {
         pub unsafe extern "fastcall" fn $fn_name(_l: LuaState) -> u32 {
