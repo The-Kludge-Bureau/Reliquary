@@ -349,6 +349,123 @@ macro_rules! typed_lookup {
     };
 }
 
+pub unsafe extern "fastcall" fn script_rq_find_row(_l: LuaState) -> u32 {
+    let l = lua::get_lua_state();
+    let argc = lua::lua_gettop(l);
+
+    if argc < 3 || !lua::lua_isstring(l, 1) || !lua::lua_isstring(l, 2) {
+        lua::lua_error(l, "Usage: RQ_FindRow(dbc_name, field, value [, locale])");
+        return 0;
+    }
+
+    let dbc_name = lua::lua_tostring(l, 1)
+        .expect("lua_isstring guard");
+    let field_name = lua::lua_tostring(l, 2)
+        .expect("lua_isstring guard");
+
+    let locale: Option<String> = if argc >= 4 && lua::lua_isstring(l, 4) {
+        lua::lua_tostring(l, 4)
+    } else {
+        None
+    };
+
+    let static_name: Option<&'static str> = dbc::KNOWN_DBC_NAMES
+        .iter()
+        .find(|&&n| n == dbc_name.as_str())
+        .copied();
+
+    let name = match static_name {
+        Some(n) => n,
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_FindRow: unknown DBC '{}'", dbc_name));
+            return 2;
+        }
+    };
+
+    let schema = match dbc::get_schema(name) {
+        Some(s) => s,
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_FindRow: unknown DBC '{}'", name));
+            return 2;
+        }
+    };
+
+    // Resolve field: try exact match first, then try appending _enUS for locale-stripped names
+    let resolved_field = field_name.as_str();
+    let col = schema.iter().find(|(n, _)| {
+        *n == resolved_field
+            || n.strip_suffix("_enUS") == Some(resolved_field)
+    });
+
+    let (raw_field_name, field_type) = match col {
+        Some((n, t)) => (*n, t),
+        None => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!(
+                "RQ_FindRow: no field '{}' in DBC '{}'", field_name, name
+            ));
+            return 2;
+        }
+    };
+
+    // Build the target FieldValue typed by the schema
+    let target = match field_type {
+        dbc::FieldType::Int32 => {
+            if !lua::lua_isnumber(l, 3) {
+                lua::lua_pushnil(l);
+                lua::lua_pushstring(l, "RQ_FindRow: value must be a number for Int32 field");
+                return 2;
+            }
+            dbc::FieldValue::Int32(lua::lua_tonumber(l, 3) as i32)
+        }
+        dbc::FieldType::UInt32 => {
+            if !lua::lua_isnumber(l, 3) {
+                lua::lua_pushnil(l);
+                lua::lua_pushstring(l, "RQ_FindRow: value must be a number for UInt32 field");
+                return 2;
+            }
+            dbc::FieldValue::UInt32(lua::lua_tonumber(l, 3) as u32)
+        }
+        dbc::FieldType::Float32 => {
+            if !lua::lua_isnumber(l, 3) {
+                lua::lua_pushnil(l);
+                lua::lua_pushstring(l, "RQ_FindRow: value must be a number for Float32 field");
+                return 2;
+            }
+            dbc::FieldValue::Float32(lua::lua_tonumber(l, 3) as f32)
+        }
+        dbc::FieldType::String => {
+            let s = match lua::lua_tostring(l, 3) {
+                Some(s) => s,
+                None => {
+                    lua::lua_pushnil(l);
+                    lua::lua_pushstring(l, "RQ_FindRow: value must be a string for String field");
+                    return 2;
+                }
+            };
+            dbc::FieldValue::String(s)
+        }
+    };
+
+    match dbc::find_records(name, raw_field_name, &target) {
+        Err(e) => {
+            lua::lua_pushnil(l);
+            lua::lua_pushstring(l, &format!("RQ_FindRow: {}", e));
+            2
+        }
+        Ok(matching_rows) => {
+            lua::lua_newtable(l);
+            for (i, fields) in matching_rows.iter().enumerate() {
+                push_row_table(l, schema, fields, locale.as_deref());
+                lua::lua_rawseti(l, -2, (i + 1) as i32);
+            }
+            1
+        }
+    }
+}
+
 typed_lookup!(script_rq_get_area_table,           "AreaTable");
 typed_lookup!(script_rq_get_area_trigger,          "AreaTrigger");
 typed_lookup!(script_rq_get_char_start_outfit,     "CharStartOutfit");

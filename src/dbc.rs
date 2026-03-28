@@ -1039,3 +1039,37 @@ pub fn get_record_by_index(dbc_name: &'static str, index: usize) -> Result<Optio
         None => Err(format!("unknown DBC '{}'", dbc_name)),
     }
 }
+
+/// Returns all records where the named field exactly equals the given value.
+#[cfg(not(test))]
+pub fn find_records(
+    dbc_name: &'static str,
+    field_name: &str,
+    target: &FieldValue,
+) -> Result<Vec<Vec<FieldValue>>, String> {
+    let schema = get_schema(dbc_name)
+        .ok_or_else(|| format!("unknown DBC '{}'", dbc_name))?;
+
+    let col_idx = schema.iter().position(|(name, _)| *name == field_name)
+        .ok_or_else(|| format!(
+            "RQ_FindRow: no field '{}' in DBC '{}'", field_name, dbc_name
+        ))?;
+
+    let _ = get_record(dbc_name, 0);
+
+    let store = get_store();
+    let map = store.lock().unwrap();
+    match map.get(dbc_name) {
+        Some(Some(rows)) => {
+            let mut results = Vec::new();
+            for fields in rows.values() {
+                if fields.get(col_idx) == Some(target) {
+                    results.push(fields.clone());
+                }
+            }
+            Ok(results)
+        }
+        Some(None) => Err(format!("'DBFilesClient\\{}.dbc' not found in any MPQ", dbc_name)),
+        None => Err(format!("unknown DBC '{}'", dbc_name)),
+    }
+}
