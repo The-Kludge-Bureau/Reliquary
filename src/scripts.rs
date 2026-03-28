@@ -9,7 +9,7 @@ use crate::lua::{self, LuaState};
 // use-after-free in release builds.
 
 const VERSION_MAJOR: u32 = 0;
-const VERSION_MINOR: u32 = 1;
+const VERSION_MINOR: u32 = 2;
 const VERSION_PATCH: u32 = 0;
 
 const LOCALES: &[&str] = &[
