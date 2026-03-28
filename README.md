@@ -114,6 +114,71 @@ All return `row, err` with the same semantics as `RQ_GetRow`.
 | `RQ_GetQuestInfo(id)` | `QuestInfo` |
 | `RQ_GetQuestSort(id)` | `QuestSort` |
 
+### Bulk retrieval and iteration
+
+#### Get all rows
+
+```lua
+local rows, err = RQ_GetRows(dbc_name [, locale])
+```
+
+Returns an array of all rows in the named DBC. Each row is a full table with
+both named and positional keys, identical to `RQ_GetRow` output. Returns an
+empty table if the DBC has no rows. On failure, returns `nil` plus an error
+string.
+
+#### Search by field
+
+```lua
+local rows, err = RQ_FindRow(dbc_name, field, value [, locale])
+```
+
+Returns an array of all rows where `field` exactly equals `value`. Comparison
+is case-sensitive and type-sensitive. The `field` parameter accepts both raw
+schema names (`"name_enUS"`) and locale-stripped names (`"name"`, which
+resolves to `"name_enUS"` by default). The `value` type must match the schema:
+numbers for integer/float fields, strings for string fields. Returns an empty
+table if no rows match.
+
+#### Row count
+
+```lua
+local count, err = RQ_GetRowCount(dbc_name)
+```
+
+Returns the total number of rows in the named DBC as an integer.
+
+#### Index-based access
+
+```lua
+local row, err = RQ_GetRowByIndex(dbc_name, index [, locale])
+```
+
+Returns the row at 1-based sequential `index`. Pair with `RQ_GetRowCount` to
+iterate rows one at a time without loading the entire DBC into Lua. Returns
+`nil` plus an error string for out-of-range indices.
+
+#### Examples
+
+```lua
+-- Build a name-to-id lookup table for all zones
+local areas = RQ_GetRows("AreaTable")
+local zone_by_name = {}
+for i = 1, table.getn(areas) do
+  zone_by_name[areas[i].name] = areas[i].id
+end
+
+-- Find all zones on Kalimdor (mapId = 1)
+local kalimdor = RQ_FindRow("AreaTable", "mapId", 1)
+
+-- Iterate one row at a time
+local count = RQ_GetRowCount("AreaTable")
+for i = 1, count do
+  local row = RQ_GetRowByIndex("AreaTable", i)
+  -- process row
+end
+```
+
 ### Row format
 
 A successful lookup returns a Lua table with both named and positional keys:
@@ -140,8 +205,10 @@ controls how these are presented:
 | `"enUS"`, `"frFR"`, etc. | The specified locale's variant is returned as `name`; all others excluded |
 | `"all"` | All 8 variants are included with full names (`name_enUS`, `name_koKR`, …) |
 
-Typed lookup functions always use the `enUS` default. Use `RQ_GetRow` with an
-explicit locale if you need another language.
+Typed lookup functions always use the `enUS` default. Bulk and iteration
+functions (`RQ_GetRows`, `RQ_FindRow`, `RQ_GetRowByIndex`) accept the same
+optional `locale` argument. Use `RQ_GetRow` with an explicit locale if you
+need another language.
 
 Supported locales: `enUS`, `koKR`, `frFR`, `deDE`, `zhCN`, `ruRU`, `esES`, `ptPT`.
 
@@ -156,9 +223,12 @@ All other failures return `nil` plus a descriptive error string:
 | ID not present in DBC | `RQ_GetRow: no record with id <id> in '<name>'` |
 | DBC file absent from all MPQs | `RQ_GetRow: 'DBFilesClient\<name>.dbc' not found in any MPQ` |
 | DBC file malformed | `RQ_GetRow: failed to parse '<name>.dbc': <reason>` |
+| Index out of range | `RQ_GetRowByIndex: index <n> out of range for '<name>'` |
+| Unknown field name in search | `RQ_FindRow: no field '<field>' in DBC '<name>'` |
+| Value type mismatch in search | `RQ_FindRow: value must be a number/string for <type> field` |
 
-Typed lookup functions produce equivalent messages prefixed with their own
-function name.
+Typed lookup functions and bulk/iteration functions produce equivalent
+messages prefixed with their own function name.
 
 ### Notes
 
